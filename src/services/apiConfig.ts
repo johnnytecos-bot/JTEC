@@ -30,6 +30,9 @@ export function getLiveWebSocketUrl(): string {
     return `${wsBase}/live`;
   }
 
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/live`;
+  if (typeof window !== "undefined" && window.location) {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}/live`;
+  }
+  return "ws://localhost:3000/live";
 }

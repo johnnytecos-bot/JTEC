@@ -110,6 +110,7 @@ class AiBrainService {
 
   private loadFromStorage() {
     try {
+      if (typeof window === "undefined" || typeof localStorage === "undefined") return;
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY_BRAIN) || localStorage.getItem("jtec_brain_profile_v4");
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -156,7 +157,9 @@ class AiBrainService {
   public saveProfile(updated: Partial<UserBrainProfile>): void {
     this.profile = { ...this.profile, ...updated };
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_BRAIN, JSON.stringify(this.profile));
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        localStorage.setItem(LOCAL_STORAGE_KEY_BRAIN, JSON.stringify(this.profile));
+      }
     } catch (e) {
       console.warn("[BrainService] Save failed:", e);
     }

@@ -1,3 +1,5 @@
+import { getApiUrl } from "./apiConfig";
+
 export interface TokenMetrics {
   promptTokens: number;
   candidateTokens: number;
@@ -38,9 +40,9 @@ class TokenTrackerService {
   private pollInterval: any = null;
 
   constructor() {
-    this.refreshMetrics();
-    // Real-time background sync every 3 seconds so UI always has live token counts
     if (typeof window !== "undefined") {
+      this.refreshMetrics();
+      // Real-time background sync every 3 seconds so UI always has live token counts
       this.pollInterval = setInterval(() => {
         this.refreshMetrics();
       }, 3000);
@@ -72,7 +74,7 @@ class TokenTrackerService {
 
   public async refreshMetrics(): Promise<TokenMetrics> {
     try {
-      const res = await fetch("/api/tokens");
+      const res = await fetch(getApiUrl("/api/tokens"));
       if (res.ok) {
         const data = await res.json();
         this.setMetrics(data);
@@ -86,7 +88,7 @@ class TokenTrackerService {
 
   public async updateSettings(sessionQuota: number, alertThresholdPercent: number): Promise<boolean> {
     try {
-      const res = await fetch("/api/tokens/settings", {
+      const res = await fetch(getApiUrl("/api/tokens/settings"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionQuota, alertThresholdPercent }),

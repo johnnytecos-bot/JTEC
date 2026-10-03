@@ -70,6 +70,7 @@ export default function App() {
   const [interimTranscript, setInterimTranscript] = useState<string>("");
   const [lastUserTranscript, setLastUserTranscript] = useState<string>("");
   const [lastAiTranscript, setLastAiTranscript] = useState<string>("");
+  const [audioErrorMessage, setAudioErrorMessage] = useState<string | null>(null);
 
   // Telemetry & Brain Context
   const [isSupabaseConfigured, setIsSupabaseConfigured] = useState<boolean>(false);
@@ -148,6 +149,7 @@ export default function App() {
 
     engine.onError = (errMsg) => {
       console.warn("[AudioEngine Error]:", errMsg);
+      setAudioErrorMessage(errMsg);
       setVoiceState("error");
     };
 
@@ -286,10 +288,11 @@ export default function App() {
   const startVoiceSession = async () => {
     if (!audioEngineRef.current) return;
 
+    setAudioErrorMessage(null);
     setVoiceState("thinking");
     const micStarted = await audioEngineRef.current.startMicrophone();
     if (!micStarted) {
-      setVoiceState("idle");
+      setIsVoiceActive(false);
       return;
     }
 
@@ -841,6 +844,8 @@ export default function App() {
             currentVoice={currentVoice}
             audioEngine={audioEngineRef.current}
             searchFilterQuery={inChatSearchQuery}
+            audioErrorMessage={audioErrorMessage}
+            onDismissAudioError={() => setAudioErrorMessage(null)}
           />
 
           {/* Secondary Contextual Panel */}
@@ -881,6 +886,7 @@ export default function App() {
           onEndCall={() => {
             if (isVoiceActive) handleToggleVoice();
             setIsLiveVoiceOpen(false);
+            setAudioErrorMessage(null);
           }}
           voiceState={voiceState}
           isVoiceActive={isVoiceActive}
@@ -890,6 +896,8 @@ export default function App() {
           lastAiTranscript={lastAiTranscript}
           interimTranscript={interimTranscript}
           currentVoice={currentVoice}
+          errorMessage={audioErrorMessage}
+          onRetryMic={handleToggleVoice}
         />
       )}
 

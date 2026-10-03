@@ -24,6 +24,8 @@ interface ModernLiveVoiceViewProps {
   lastAiTranscript?: string;
   interimTranscript?: string;
   currentVoice: string;
+  errorMessage?: string | null;
+  onRetryMic?: () => void;
 }
 
 export const ModernLiveVoiceView: React.FC<ModernLiveVoiceViewProps> = ({
@@ -37,6 +39,8 @@ export const ModernLiveVoiceView: React.FC<ModernLiveVoiceViewProps> = ({
   lastAiTranscript,
   interimTranscript,
   currentVoice,
+  errorMessage,
+  onRetryMic,
 }) => {
   const [visualMode, setVisualMode] = useState<"orb" | "waveform" | "spectrum">("orb");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -218,12 +222,14 @@ export const ModernLiveVoiceView: React.FC<ModernLiveVoiceViewProps> = ({
 
   const stateText = isMuted
     ? "Microphone Muted"
+    : voiceState === "error"
+    ? "Microphone Unavailable"
     : voiceState === "speaking"
     ? "j TEC is speaking..."
     : voiceState === "listening"
     ? "Listening to you..."
     : voiceState === "thinking"
-    ? "Thinking..."
+    ? "Connecting & Thinking..."
     : "Live Voice Ready";
 
   return (
@@ -300,8 +306,27 @@ export const ModernLiveVoiceView: React.FC<ModernLiveVoiceViewProps> = ({
             {stateText}
           </span>
           <span className="text-xs text-zinc-500 max-w-sm">
-            Speak naturally. Interrupt anytime by speaking over.
+            {voiceState === "error"
+              ? "Microphone could not start. Please check your browser audio permissions."
+              : "Speak naturally. Interrupt anytime by speaking over."}
           </span>
+
+          {voiceState === "error" && (
+            <div className="mt-3 px-4 py-2.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex flex-col sm:flex-row items-center gap-2 max-w-md mx-auto animate-fade-in">
+              <span className="text-center sm:text-left flex-1">
+                {errorMessage ||
+                  "Microphone could not start. Please ensure no other application is using your microphone and allow browser permissions."}
+              </span>
+              {onRetryMic && (
+                <button
+                  onClick={onRetryMic}
+                  className="px-3 py-1 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-white font-semibold text-xs shrink-0 transition"
+                >
+                  Retry Mic
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Real-time caption transcript box */}

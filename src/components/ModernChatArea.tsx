@@ -44,6 +44,8 @@ interface ModernChatAreaProps {
   currentVoice: string;
   audioEngine: AudioEngine | null;
   searchFilterQuery?: string;
+  audioErrorMessage?: string | null;
+  onDismissAudioError?: () => void;
 }
 
 export const ModernChatArea: React.FC<ModernChatAreaProps> = ({
@@ -62,6 +64,8 @@ export const ModernChatArea: React.FC<ModernChatAreaProps> = ({
   currentVoice,
   audioEngine,
   searchFilterQuery = "",
+  audioErrorMessage,
+  onDismissAudioError,
 }) => {
   const [inputText, setInputText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -159,6 +163,25 @@ export const ModernChatArea: React.FC<ModernChatAreaProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative bg-[#09090b]">
+      {/* Audio Error Alert Banner */}
+      {audioErrorMessage && (
+        <div className="mx-3 sm:mx-6 mt-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-3 max-w-2xl mx-auto shadow-md animate-fade-in shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="leading-snug">{audioErrorMessage}</span>
+          </div>
+          {onDismissAudioError && (
+            <button
+              onClick={onDismissAudioError}
+              className="text-zinc-400 hover:text-white p-1 rounded-lg transition"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-6 space-y-6">
         {displayedMessages.length === 0 ? (

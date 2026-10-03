@@ -113,44 +113,119 @@ export class AudioEngine {
     }
   }
 
-  // Start microphone capture and input analysis
-  public async startMicrophone(): Promise<boolean> {
-    try {
-      this.stopPlayback(); // clear any stale audio
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-
-      // 16kHz for Gemini input
-      this.inputAudioCtx = new AudioCtxClass({ sampleRate: 16000 });
-      if (this.inputAudioCtx.state === "suspended") {
-        await this.inputAudioCtx.resume();
+  // Downsample arbitrary sample rate buffer to 16kHz for Gemini Live
+  private downsampleTo16k(input: Float32Array, inputSampleRate: number): Float32Array {
+    if (inputSampleRate === 16000) return input;
+    const ratio = inputSampleRate / 16000;
+    const newLength = Math.round(input.length / ratio);
+    const result = new Float32Array(newLength);
+    let offsetResult = 0;
+    let offsetInput = 0;
+    while (offsetResult < result.length) {
+      const nextOffsetInput = Math.round((offsetResult + 1) * ratio);
+      let accum = 0;
+      let count = 0;
+      for (let i = offsetInput; i < nextOffsetInput && i < input.length; i++) {
+        accum += input[i];
+        count++;
       }
+      result[offsetResult] = count > 0 ? accum / count : input[offsetInput];
+      offsetResult++;
+      offsetInput = nextOffsetInput;
+    }
+    return result;
+  }
 
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+  // Robust multi-tier microphone stream acquisition
+  private async acquireMediaStream(): Promise<MediaStream> {
+    // Release any previous tracks first to avoid hardware lock conflict
+    if (this.mediaStream) {
+      try {
+        this.mediaStream.getTracks().forEach((track) => track.stop());
+      } catch (_) {}
+      this.mediaStream = null;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Microphone API is not supported in this browser or context.");
+    }
+
+    // Tier 1: Try with enhanced speech processing constraints
+    try {
+      return await navigator.mediaDevices.getUserMedia({
         audio: {
-          channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
         },
       });
+    } catch (err1: any) {
+      console.warn("[AudioEngine] Standard constraints failed, trying basic { audio: true }:", err1);
+      // Tier 2: Fallback to basic audio: true (avoids 'Could not start audio source' on strict drivers)
+      try {
+        return await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err2: any) {
+        console.error("[AudioEngine] Basic microphone capture also failed:", err2);
+        throw err2;
+      }
+    }
+  }
 
+  // Start microphone capture and input analysis
+  public async startMicrophone(): Promise<boolean> {
+    try {
+      this.stopPlayback(); // clear any stale audio
+
+      // 1. Acquire media stream with robust fallbacks
+      this.mediaStream = await this.acquireMediaStream();
+
+      // 2. Initialize AudioContext AFTER media stream is secured
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) {
+        throw new Error("Web Audio API is not supported in this browser.");
+      }
+
+      let audioCtx: AudioContext;
+      try {
+        audioCtx = new AudioCtxClass({ sampleRate: 16000 });
+      } catch {
+        audioCtx = new AudioCtxClass();
+      }
+
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
+      this.inputAudioCtx = audioCtx;
+
+      // 3. Connect microphone source
       this.micSource = this.inputAudioCtx.createMediaStreamSource(this.mediaStream);
 
-      // Mic Analyser for Waveform
+      // 4. Mic Analyser for Waveform
       this.micAnalyser = this.inputAudioCtx.createAnalyser();
       this.micAnalyser.fftSize = 256;
       this.micAnalyser.smoothingTimeConstant = 0.8;
       this.micSource.connect(this.micAnalyser);
 
-      // 4096 buffer size
+      // 5. Script processor for PCM chunks
       this.processorNode = this.inputAudioCtx.createScriptProcessor(4096, 1, 1);
       this.micSource.connect(this.processorNode);
-      this.processorNode.connect(this.inputAudioCtx.destination);
+
+      // Route through a 0-gain node to destination to prevent speaker feedback loop
+      const silentGain = this.inputAudioCtx.createGain();
+      silentGain.gain.value = 0;
+      this.processorNode.connect(silentGain);
+      silentGain.connect(this.inputAudioCtx.destination);
 
       this.processorNode.onaudioprocess = (e) => {
         if (this.isMuted) return;
 
-        const inputData = e.inputBuffer.getChannelData(0);
+        const rawData = e.inputBuffer.getChannelData(0);
+        const currentSampleRate = this.inputAudioCtx?.sampleRate || 16000;
+        const inputData =
+          currentSampleRate === 16000
+            ? rawData
+            : this.downsampleTo16k(rawData, currentSampleRate);
+
         // Convert Float32 to 16-bit PCM little-endian
         const pcm16 = this.floatTo16BitPCM(inputData);
         const base64 = this.arrayBufferToBase64(pcm16.buffer);
@@ -160,7 +235,7 @@ export class AudioEngine {
         }
       };
 
-      // Start speech recognition if supported
+      // 6. Start speech recognition if supported
       if (this.recognition) {
         try {
           this.isRecognizing = true;
@@ -174,8 +249,23 @@ export class AudioEngine {
       return true;
     } catch (err: any) {
       console.error("[AudioEngine] Error accessing microphone:", err);
+      let userMsg = "Could not access microphone. Please allow microphone permissions.";
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        userMsg = "Microphone access was denied. Please allow microphone permissions in your browser to talk.";
+      } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+        userMsg = "No microphone was found on your device. Please connect an audio input.";
+      } else if (
+        err?.name === "NotReadableError" ||
+        err?.message?.includes("Could not start audio source")
+      ) {
+        userMsg =
+          "Microphone is currently in use or busy. Please ensure no other application is locking the audio source.";
+      } else if (err?.message) {
+        userMsg = `Microphone error: ${err.message}`;
+      }
+
       if (this.onError) {
-        this.onError(err?.message || "Could not access microphone. Please allow microphone permissions.");
+        this.onError(userMsg);
       }
       return false;
     }

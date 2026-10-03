@@ -90,22 +90,42 @@ class SupabaseHistoryService {
 
   private initFromStorage() {
     try {
-      const stored = localStorage.getItem(SUPABASE_CONFIG_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.url && parsed.anonKey) {
-          this.currentConfig = parsed;
-          this.client = createClient(parsed.url, parsed.anonKey);
-          return;
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        const stored = localStorage.getItem(SUPABASE_CONFIG_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (
+              parsed.url &&
+              parsed.anonKey &&
+              typeof parsed.url === "string" &&
+              parsed.url.startsWith("http")
+            ) {
+              this.currentConfig = parsed;
+              this.client = createClient(parsed.url, parsed.anonKey);
+              return;
+            }
+          } catch (parseErr) {
+            console.warn("[Supabase] Invalid stored config, ignoring:", parseErr);
+          }
         }
       }
 
       // Check env vars as fallback
       const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
       const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-      if (envUrl && envKey) {
-        this.currentConfig = { url: envUrl, anonKey: envKey };
-        this.client = createClient(envUrl, envKey);
+      if (
+        envUrl &&
+        envKey &&
+        typeof envUrl === "string" &&
+        envUrl.startsWith("http")
+      ) {
+        try {
+          this.currentConfig = { url: envUrl, anonKey: envKey };
+          this.client = createClient(envUrl, envKey);
+        } catch (envErr) {
+          console.warn("[Supabase] Failed to init client from env:", envErr);
+        }
       }
     } catch (e) {
       console.warn("[Supabase] Failed to init client from storage:", e);
