@@ -46,7 +46,7 @@ export const LiveConversationView: React.FC<LiveConversationViewProps> = ({
 }) => {
   // Saved wave style preference
   const [waveStyle, setWaveStyle] = useState<LiveWaveStyle>(() => {
-    const saved = localStorage.getItem("sana_live_wave_style") as LiveWaveStyle;
+    const saved = localStorage.getItem("jtec_live_wave_style") as LiveWaveStyle;
     return saved === "jarvis" || saved === "celestial" || saved === "quantum"
       ? saved
       : "jarvis";
@@ -54,7 +54,7 @@ export const LiveConversationView: React.FC<LiveConversationViewProps> = ({
 
   const handleSelectStyle = (style: LiveWaveStyle) => {
     setWaveStyle(style);
-    localStorage.setItem("sana_live_wave_style", style);
+    localStorage.setItem("jtec_live_wave_style", style);
   };
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

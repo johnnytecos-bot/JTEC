@@ -52,7 +52,7 @@ class AudioCacheManager {
 
     return new Promise((resolve) => {
       try {
-        const req = indexedDB.open("sana_audio_vault_v2", 1);
+        const req = indexedDB.open("jtec_audio_vault_v2", 1);
         req.onupgradeneeded = () => {
           const db = req.result;
           if (!db.objectStoreNames.contains("audio_blobs")) {

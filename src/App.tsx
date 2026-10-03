@@ -24,6 +24,7 @@ import { tokenTracker, TokenMetrics } from "./services/tokenTracker";
 import { aiBrain, UserBrainProfile } from "./services/aiBrain";
 import { audioCache } from "./services/audioCache";
 import { ThemeType } from "./components/Navbar";
+import { getApiUrl, getLiveWebSocketUrl } from "./services/apiConfig";
 
 export default function App() {
   // Application & Conversation State
@@ -321,8 +322,7 @@ export default function App() {
   // Connect WebSocket to Gemini 2.0 Live API bridge
   const connectLiveWebSocket = () => {
     try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/live`;
+      const wsUrl = getLiveWebSocketUrl();
       const ws = new WebSocket(wsUrl);
 
       const systemInstruction = aiBrain.constructSystemInstruction(
@@ -491,7 +491,7 @@ export default function App() {
       }
     }
 
-    fetch("/api/brain/extract", {
+    fetch(getApiUrl("/api/brain/extract"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -519,7 +519,7 @@ export default function App() {
     }
     setVoiceState("speaking");
     try {
-      const ttsRes = await fetch("/api/tts", {
+      const ttsRes = await fetch(getApiUrl("/api/tts"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -686,7 +686,7 @@ export default function App() {
     };
 
     try {
-      const res = await fetch("/api/chat/stream", {
+      const res = await fetch(getApiUrl("/api/chat/stream"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
