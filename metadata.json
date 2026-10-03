@@ -1,0 +1,8 @@
+{
+  "name": "AuraLive: Real-Time Gemini Voice AI & Chat",
+  "description": "Ultra low-latency real-time voice and text conversations powered by Gemini Live API, with live waveform audio visualizer, multi-language speech recognition, and Supabase cloud history sync.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
